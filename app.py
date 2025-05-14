@@ -5,6 +5,7 @@ import bma
 import querypre
 import word2vec as w2v
 from sklearn.metrics.pairwise import cosine_similarity
+import bert
 import openai
 import os
 import google.generativeai as genai
@@ -117,10 +118,10 @@ job_description = st.text_area(
 
 st.markdown("---")
 
-algorithms = st.multiselect(
+algorithms = st.selectbox(
     "Select Ranking Algorithm(s)",
     ["TF-IDF", "BM25", "Word2Vec", "BERT"],
-    default=["TF-IDF"]
+    # default=["TF-IDF"]
 )
 
 with st.expander("ℹ️ What do these algorithms mean?"):
@@ -150,7 +151,7 @@ if st.button("🔎 Rank Resumes"):
             st.write(bm25_result)
         
         # Word2Vec Ranking
-        if "Word2Vec" in algorithms:
+        elif "Word2Vec" in algorithms:
             st.subheader("Word2Vec Ranking")
 
             # Train model
@@ -198,4 +199,9 @@ if "word2vec_ranked" in st.session_state:
             st.success("Explanation Generated")
             st.markdown(explanation)
 
+        elif "BERT" in algorithms:
+            st.subheader("BERT Ranking")
+            # Assuming you have a function to apply BERT ranking
+            bert_result = bert.applybert( job_description,processed_text_list)
+            st.write(bert_result)
 
