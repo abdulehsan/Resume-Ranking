@@ -162,7 +162,7 @@ if st.button("🔎 Rank Resumes"):
                 for i, (score, file_name) in enumerate(st.session_state.bm25_ranked, start=1):
                     st.markdown(f"**{i}. {file_name}** — Similarity Score: `{score:.4f}`")
 
-            if algo == "Word2Vec":
+            elif algo == "Word2Vec":
                 st.subheader("Word2Vec Ranking")
                 model = w2v.train_word2vec([tokens for tokens in processed_text_list])
                 resume_vectors = [w2v.get_average_vector(tokens, model) for tokens in processed_text_list]
@@ -173,7 +173,6 @@ if st.button("🔎 Rank Resumes"):
                 for i, (score, file_name) in enumerate(st.session_state.word2vec_ranked, start=1):
                     st.markdown(f"**{i}. {file_name}** — Similarity Score: `{score:.4f}`")
 
-# ✅ Groq Evaluation — now OUTSIDE the button so it persists after reruns
 if st.session_state.get("ranking_done", False):
     for algo in algorithms:
         algo_key = algo.lower().replace("-", "").replace(" ", "")
