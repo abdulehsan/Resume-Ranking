@@ -5,12 +5,12 @@ import bma
 import querypre
 import word2vec as w2v
 from sklearn.metrics.pairwise import cosine_similarity
-import bert
-import openai
 import os
 import google.generativeai as genai
 import requests
+from dotenv import load_dotenv
 
+load_dotenv()
 # Hardcoding your Gemini API key
 genai.configure(api_key="AIzaSyAlNq-uhihqv0FSpgD7Jdo5sDIX0xeWtGQ")
 def explain_with_groq(algorithm_name, job_description, resume_text, score):
@@ -50,7 +50,7 @@ st.set_page_config(
     layout="centered"
 )
 
-st.title("Resume Ranking-Using BM25")
+st.title("Resume Ranking")
 st.subheader("Upload your resumes to rank them using BM25, etc.")
 st.markdown("Start uploading resumes and a job description below:")
 
@@ -73,48 +73,44 @@ if uploaded_files:
     selected_resume = st.selectbox("Select a Resume", df1['File Name'].tolist())
     job_description = st.text_area("Paste the Job Description", key="job_description_1")
 
-    if st.button("Generate Explanation with Mixtral"):
-        selected_text = preprocesseddf[preprocesseddf['File Name'] == selected_resume]['Processed Text'].values[0]
+#     if st.button("Generate Explanation with Mixtral"):
+#         selected_text = preprocesseddf[preprocesseddf['File Name'] == selected_resume]['Processed Text'].values[0]
         
-        prompt = f"""
-        Job Description:
-        {job_description}
+#         prompt = f"""
+#         Job Description:
+#         {job_description}
 
-        Resume:
-        {selected_text}
+#         Resume:
+#         {selected_text}
 
-        Based on the job description and resume above, explain in 3-5 bullet points why this resume may or may not be a good fit.
-        """
+#         Based on the job description and resume above, explain in 3-5 bullet points why this resume may or may not be a good fit.
+#         """
 
-        with st.spinner("Calling Mixtral via Groq..."):
-            try:
-                url = "https://api.groq.com/openai/v1/chat/completions"
-                headers = {
-                    "Authorization": f"Bearer {GROQ_API_KEY}",
-                    "Content-Type": "application/json"
-                }
-                payload = {
-                    "model": "llama3-70b-8192",
-                    "messages": [
-                        {"role": "system", "content": "You are a helpful assistant."},
-                        {"role": "user", "content": prompt}
-                    ]
-                }
-                response = requests.post(url, headers=headers, json=payload)
-                result = response.json()
-                print(result)  # 👈 Add this line
-                explanation = result['choices'][0]['message']['content']
-                st.success("Explanation Generated")
-                st.markdown(explanation)
-            except Exception as e:
-                st.error(f"Error using Groq API: {e}")
+#         with st.spinner("Calling Mixtral via Groq..."):
+#             try:
+#                 url = "https://api.groq.com/openai/v1/chat/completions"
+#                 headers = {
+#                     "Authorization": f"Bearer {GROQ_API_KEY}",
+#                     "Content-Type": "application/json"
+#                 }
+#                 payload = {
+#                     "model": "llama3-70b-8192",
+#                     "messages": [
+#                         {"role": "system", "content": "You are a helpful assistant."},
+#                         {"role": "user", "content": prompt}
+#                     ]
+#                 }
+#                 response = requests.post(url, headers=headers, json=payload)
+#                 result = response.json()
+#                 print(result)  # 👈 Add this line
+#                 explanation = result['choices'][0]['message']['content']
+#                 st.success("Explanation Generated")
+#                 st.markdown(explanation)
+#             except Exception as e:
+#                 st.error(f"Error using Groq API: {e}")
 else:
     st.info("You can upload multiple PDF, DOC files.")
 
-job_description = st.text_area(
-    "Paste the Job Description Here",
-    placeholder="Example: We're looking for a Python developer with experience in NLP and machine learning..."
-)
 
 st.markdown("---")
 
@@ -165,6 +161,11 @@ if st.button("🔎 Rank Resumes"):
             for i, (score, file_name) in enumerate(st.session_state.word2vec_ranked, start=1):
                 st.markdown(f"**{i}. {file_name}** — Similarity Score: `{score:.4f}`")
 
+        # elif "BERT" in algorithms:
+        #     st.subheader("BERT Ranking")
+        #     # Assuming you have a function to apply BERT ranking
+        #     bert_result = bert.applybert( job_description,processed_text_list)
+        #     st.write(bert_result)
 
 if "word2vec_ranked" in st.session_state:
     st.subheader("🔍 Explain a Resume Match (Word2Vec + Groq)")
@@ -199,9 +200,4 @@ if "word2vec_ranked" in st.session_state:
             st.success("Explanation Generated")
             st.markdown(explanation)
 
-        elif "BERT" in algorithms:
-            st.subheader("BERT Ranking")
-            # Assuming you have a function to apply BERT ranking
-            bert_result = bert.applybert( job_description,processed_text_list)
-            st.write(bert_result)
 
