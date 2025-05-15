@@ -4,7 +4,7 @@ from nltk.tokenize import word_tokenize
 from nltk.stem import PorterStemmer
 
 nltk.download('stopwords')
-nltk.download('punkt')
+nltk.download('punkt_tab')
 
 def preprocess(job):
     job = job.lower().strip()
