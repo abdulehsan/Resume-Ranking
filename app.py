@@ -85,7 +85,7 @@ if st.button("🔎 Rank Resumes"):
         elif "BERT" in algorithms:
             st.subheader("BERT Ranking")
             # Assuming you have a function to apply BERT ranking
-            bert_result = bert.applybert( job_description,processed_text_list)
+            bert_result = bert.applybert( processed_text_list,job_query)
             st.write(bert_result)
      
      

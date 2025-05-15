@@ -2,6 +2,7 @@ from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
 model = SentenceTransformer('sentence-transformers/all-mpnet-base-v2')
 def applybert(resume_texts, job_text):
+    
         # Encode the job description and resumes
     job_embedding = model.encode(job_text, convert_to_tensor=True)
     resume_embeddings = model.encode(resume_texts, convert_to_tensor=True)
