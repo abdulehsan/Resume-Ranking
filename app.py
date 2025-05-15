@@ -8,12 +8,18 @@ from sklearn.metrics.pairwise import cosine_similarity
 import os
 import google.generativeai as genai
 import requests
-from dotenv import load_dotenv
-
-load_dotenv()
+import time
 # Hardcoding your Gemini API key
-genai.configure(api_key="AIzaSyAlNq-uhihqv0FSpgD7Jdo5sDIX0xeWtGQ")
+#genai.configure(api_key="AIzaSyAlNq-uhihqv0FSpgD7Jdo5sDIX0xeWtGQ")
+
+
+import time
+GROQ_API_KEY = "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"
 def explain_with_groq(algorithm_name, job_description, resume_text, score):
+    # Truncate inputs to reduce token usage
+    resume_text = resume_text[:3000]
+    job_description = job_description[:1000]
+
     prompt = f"""
     Job Description:
     {job_description}
@@ -23,26 +29,66 @@ def explain_with_groq(algorithm_name, job_description, resume_text, score):
 
     Similarity Score: {score:.4f}
 
-    Explain in 3-5 bullet points why this resume is considered highly relevant using {algorithm_name}.
+    In exactly 4 lines, explain in a single paragraph why this resume is relevant or not using {algorithm_name}. Avoid bullet points. Be clear and concise. Prefix with either 'Good Fit:' or 'Bad Fit:'.
     """
-    try:
-        url = "https://api.groq.com/openai/v1/chat/completions"
-        headers = {
-            "Authorization": f"Bearer {GROQ_API_KEY}",
-            "Content-Type": "application/json"
-        }
-        payload = {
-            "model": "llama3-70b-8192",
-            "messages": [
-                {"role": "system", "content": "You are a helpful assistant."},
-                {"role": "user", "content": prompt}
-            ]
-        }
-        response = requests.post(url, headers=headers, json=payload)
-        result = response.json()
-        return result['choices'][0]['message']['content']
-    except Exception as e:
-        return f"Error using Groq API: {e}"
+
+    url = "https://api.groq.com/openai/v1/chat/completions"
+    headers = {
+        "Authorization": f"Bearer {GROQ_API_KEY}",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "model": "llama3-70b-8192",
+        "messages": [
+            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "user", "content": prompt}
+        ]
+    }
+
+    # Retry logic
+    for attempt in range(3):  # Try up to 3 times
+        try:
+            response = requests.post(url, headers=headers, json=payload)
+            result = response.json()
+
+            if 'error' in result:
+                error_msg = result['error']['message']
+                if "rate limit" in error_msg.lower() or "please try again" in error_msg.lower():
+                    wait_time = 8 + attempt * 2
+                    time.sleep(wait_time)
+                    continue  # retry
+                elif "request too large" in error_msg.lower():
+                    return f"⚠️ Resume too long. Skipped to avoid Groq token limit."
+                else:
+                    return f"⚠️ Groq API error: {error_msg}"
+
+            # Pause to avoid hitting TPM limits
+            time.sleep(1.5)
+
+            return result['choices'][0]['message']['content']
+
+        except Exception as e:
+            time.sleep(2)
+            continue  # try again
+
+    return "❌ Failed after multiple Groq attempts."
+
+def batch_groq_fit_evaluation(algorithm_name, job_description, resume_score_data):
+    good_fits = []
+    bad_fits = []
+
+    for file_name, score, resume_text in resume_score_data:
+        with st.spinner(f"Evaluating: {file_name}"):
+            explanation = explain_with_groq(algorithm_name, job_description, resume_text, score)
+
+        if explanation.strip().lower().startswith("good fit") or "**Good Fit**" in explanation:
+            good_fits.append((file_name, score, explanation))
+        else:
+            bad_fits.append((file_name, score, explanation))
+
+    return good_fits, bad_fits
+
+
 
 st.set_page_config(
     page_title="Resume Ranking-Using BM25",
@@ -68,46 +114,18 @@ if uploaded_files:
             st.write(row['Processed Text'])
 
             # ✅ GEMINI RAG EXPLANATION SECTION — INSIDE THIS BLOCK
-    GROQ_API_KEY = "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"
+        #GROQ_API_KEY = "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"
 
-    selected_resume = st.selectbox("Select a Resume", df1['File Name'].tolist())
-    job_description = st.text_area("Paste the Job Description", key="job_description_1")
+    # selected_resume = st.selectbox("Select a Resume", df1['File Name'].tolist())
+    # job_description = st.text_area("Paste the Job Description", key="job_description_1")
 
-#     if st.button("Generate Explanation with Mixtral"):
-#         selected_text = preprocesseddf[preprocesseddf['File Name'] == selected_resume]['Processed Text'].values[0]
-        
-#         prompt = f"""
-#         Job Description:
-#         {job_description}
+    # if st.button("Generate Explanation with Mixtral"):
+    #     selected_text = preprocesseddf[preprocesseddf['File Name'] == selected_resume]['Processed Text'].values[0]
 
-#         Resume:
-#         {selected_text}
-
-#         Based on the job description and resume above, explain in 3-5 bullet points why this resume may or may not be a good fit.
-#         """
-
-#         with st.spinner("Calling Mixtral via Groq..."):
-#             try:
-#                 url = "https://api.groq.com/openai/v1/chat/completions"
-#                 headers = {
-#                     "Authorization": f"Bearer {GROQ_API_KEY}",
-#                     "Content-Type": "application/json"
-#                 }
-#                 payload = {
-#                     "model": "llama3-70b-8192",
-#                     "messages": [
-#                         {"role": "system", "content": "You are a helpful assistant."},
-#                         {"role": "user", "content": prompt}
-#                     ]
-#                 }
-#                 response = requests.post(url, headers=headers, json=payload)
-#                 result = response.json()
-#                 print(result)  # 👈 Add this line
-#                 explanation = result['choices'][0]['message']['content']
-#                 st.success("Explanation Generated")
-#                 st.markdown(explanation)
-#             except Exception as e:
-#                 st.error(f"Error using Groq API: {e}")
+    #     with st.spinner("Calling Mixtral via Groq..."):
+    #         explanation = explain_with_groq("Mixtral", job_description, selected_text, score=0.0)
+    #         st.success("Explanation Generated")
+    #         st.markdown(explanation)
 else:
     st.info("You can upload multiple PDF, DOC files.")
 
@@ -128,76 +146,61 @@ with st.expander("ℹ️ What do these algorithms mean?"):
     - **BERT**: Deep contextualized transformer model.
     """)
 
+if "ranking_done" not in st.session_state:
+    st.session_state.ranking_done = False
 if st.button("🔎 Rank Resumes"):
     if not uploaded_files or not job_description or not algorithms:
         st.warning("Please upload files, enter a job description, and select at least one algorithm.")
     else:
-        st.info("Processing resumes... (this may take a few seconds)")
-        
-        # Preprocessed resume texts
-        processed_text_list = preprocesseddf['Processed Text'].tolist()  # List of tokenized resumes
-        
-        # Tokenize the job description
-        job_query = querypre.preprocess(job_description)  # Tokenized job description
-        
-        # BM25 Ranking
-        if "BM25" in algorithms:
-            st.subheader("📊 BM25 Ranking")
-            bm25_result = bma.applybm25(processed_text_list, job_query)
-            st.write(bm25_result)
-        
-        # Word2Vec Ranking
-        elif "Word2Vec" in algorithms:
-            st.subheader("Word2Vec Ranking")
+        st.session_state.ranking_done = True  # ✅ Mark ranking as completed
 
-            # Train model
-            model = w2v.train_word2vec([tokens for tokens in processed_text_list])  
-            resume_vectors = [w2v.get_average_vector(tokens, model) for tokens in processed_text_list]
-            job_vector = w2v.get_average_vector(job_query, model)  
+        processed_text_list = preprocesseddf['Processed Text'].tolist()
+        job_query = querypre.preprocess(job_description)
 
-            similarities = [cosine_similarity([resume_vector], [job_vector])[0][0] for resume_vector in resume_vectors]
-            st.session_state.word2vec_ranked = sorted(zip(similarities, df1['File Name']), reverse=True)
-            st.write("### 📈 Ranked Resumes (Word2Vec)")
-            for i, (score, file_name) in enumerate(st.session_state.word2vec_ranked, start=1):
-                st.markdown(f"**{i}. {file_name}** — Similarity Score: `{score:.4f}`")
+        for algo in algorithms:
+            if algo == "BM25":
+                st.subheader("📊 BM25 Ranking")
+                bm25_result = bma.applybm25(processed_text_list, job_query)
+                st.session_state.bm25_ranked = sorted(zip(bm25_result, df1['File Name']), reverse=True)
+                st.write("### 📈 Ranked Resumes (BM25)")
+                for i, (score, file_name) in enumerate(st.session_state.bm25_ranked, start=1):
+                    st.markdown(f"**{i}. {file_name}** — Similarity Score: `{score:.4f}`")
 
-        # elif "BERT" in algorithms:
-        #     st.subheader("BERT Ranking")
-        #     # Assuming you have a function to apply BERT ranking
-        #     bert_result = bert.applybert( job_description,processed_text_list)
-        #     st.write(bert_result)
+            if algo == "Word2Vec":
+                st.subheader("Word2Vec Ranking")
+                model = w2v.train_word2vec([tokens for tokens in processed_text_list])
+                resume_vectors = [w2v.get_average_vector(tokens, model) for tokens in processed_text_list]
+                job_vector = w2v.get_average_vector(job_query, model)
+                similarities = [cosine_similarity([resume_vector], [job_vector])[0][0] for resume_vector in resume_vectors]
+                st.session_state.word2vec_ranked = sorted(zip(similarities, df1['File Name']), reverse=True)
+                st.write("### 📈 Ranked Resumes (Word2Vec)")
+                for i, (score, file_name) in enumerate(st.session_state.word2vec_ranked, start=1):
+                    st.markdown(f"**{i}. {file_name}** — Similarity Score: `{score:.4f}`")
 
-if "word2vec_ranked" in st.session_state:
-    st.subheader("🔍 Explain a Resume Match (Word2Vec + Groq)")
-    
-    selected_resume_word2vec = st.selectbox(
-        "Select a Resume (Word2Vec)", 
-        [file_name for _, file_name in st.session_state.word2vec_ranked], 
-        key="word2vec_resume_select"
-    )
+# ✅ Groq Evaluation — now OUTSIDE the button so it persists after reruns
+if st.session_state.get("ranking_done", False):
+    for algo in algorithms:
+        algo_key = algo.lower().replace("-", "").replace(" ", "")
+        rank_key = f"{algo_key}_ranked"
 
-    if st.button("Ask Groq for Explanation (Word2Vec)"):
-        selected_text = preprocesseddf[preprocesseddf['File Name'] == selected_resume_word2vec]['Processed Text'].values[0]
-        selected_score = next(
-    (score for score, file_name in st.session_state.word2vec_ranked if file_name == selected_resume_word2vec),
-    None
-)
+        if rank_key in st.session_state:
+            st.markdown(f"---\n## 🤖 Groq Evaluation for {algo}")
+            resume_score_data = [
+                (file_name, score, preprocesseddf[preprocesseddf['File Name'] == file_name]['Processed Text'].values[0])
+                for score, file_name in st.session_state[rank_key]
+            ]
 
-        prompt = f"""
-        Job Description:
-        {job_description}
+            if st.button(f"Use Groq to Classify & Explain ({algo})"):
+                good_fits, bad_fits = batch_groq_fit_evaluation(algo, job_description, resume_score_data)
 
-        Resume:
-        {selected_text}
+                st.subheader("✅ Good Fit Resumes")
+                for file_name, score, explanation in good_fits:
+                    st.markdown(f"**{file_name}** — Score: `{score:.4f}`")
+                    st.markdown(explanation)
+                    st.markdown("---")
 
-        Similarity Score: {selected_score:.4f}
-
-        Explain in 3-5 bullet points why this resume is a good fit using Word2Vec.
-        """
-
-        with st.spinner("Asking Groq..."):
-            explanation = explain_with_groq("Word2Vec", job_description, selected_text, selected_score)
-            st.success("Explanation Generated")
-            st.markdown(explanation)
-
-
+                st.subheader("❌ Bad Fit Resumes")
+                for file_name, score, explanation in bad_fits:
+                    st.markdown(f"**{file_name}** — Score: `{score:.4f}`")
+                    st.markdown(explanation)
+                    st.markdown("---")
