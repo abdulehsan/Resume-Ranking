@@ -1,18 +1,13 @@
 import streamlit as st
 import extraction
 import applyprocessing as ap
+from applyprocessing import preprocess_for_llm  # ✅ Import LLM-specific preprocessing
 import bma
 import querypre
 import word2vec as w2v
 from sklearn.metrics.pairwise import cosine_similarity
 import explainwithllm as explain
 import bert
-
-# st.set_page_config(
-#     page_title="Resume Ranking-Using BM25",
-#     page_icon="📄",
-#     layout="centered"
-# )
 
 st.title("Resume Ranking-Using BM25")
 st.subheader("Upload your resumes to rank them using BM25, etc.")
@@ -21,16 +16,11 @@ st.markdown("Start uploading resumes and a job description below:")
 uploaded_files = st.file_uploader("Upload Resume", type=["pdf", "docx", "txt"], accept_multiple_files=True)
 if uploaded_files:
     st.success(f"{len(uploaded_files)} files uploaded")
-    
-    df1 = extraction.extract_text(uploaded_files)
-    
-    st.dataframe(df1[['File Name', 'Resume Text']])
-    
-    preprocesseddf = ap.preprocess_resumes(df1)
-    # for index, row in preprocesseddf.iterrows():
-    #     with st.expander(f"Resume {row['File Name']}"):
-    #         st.write(row['Processed Text'])
 
+    df1 = extraction.extract_text(uploaded_files)
+    st.dataframe(df1[['File Name', 'Resume Text']])
+
+    preprocesseddf = ap.preprocess_resumes(df1)
 else:
     st.info("You can upload multiple PDF, DOC files.")
 
@@ -57,6 +47,7 @@ with st.expander("ℹ️ What do these algorithms mean?"):
 
 if "ranking_done" not in st.session_state:
     st.session_state.ranking_done = False
+
 if st.button("🔎 Rank Resumes"):
     if not uploaded_files or not job_description or not algorithms:
         st.warning("Please upload files, enter a job description, and select at least one algorithm.")
@@ -85,7 +76,7 @@ if st.button("🔎 Rank Resumes"):
                 st.write("### 📈 Ranked Resumes (Word2Vec)")
                 for i, (score, file_name) in enumerate(st.session_state.word2vec_ranked, start=1):
                     st.markdown(f"**{i}. {file_name}** — Similarity Score: `{score:.4f}`")
-                    
+
             elif algo == "BERT":
                 st.subheader("BERT Ranking")
                 similarities = bert.applybert(df1["Resume Text"].tolist(), job_description)
@@ -93,7 +84,8 @@ if st.button("🔎 Rank Resumes"):
                 st.write("### 📈 Ranked Resumes (BERT)")
                 for i, (score, file_name) in enumerate(st.session_state.bert_ranked, start=1):
                     st.markdown(f"**{i}. {file_name}** — Similarity Score: `{score:.4f}`")
-        
+
+# Groq evaluation after ranking
 if st.session_state.get("ranking_done", False):
     for algo in algorithms:
         algo_key = algo.lower().replace("-", "").replace(" ", "")
@@ -101,13 +93,16 @@ if st.session_state.get("ranking_done", False):
 
         if rank_key in st.session_state:
             st.markdown(f"---\n## 🤖 Groq Evaluation for {algo}")
-            resume_score_data = [
-                (file_name, score, preprocesseddf[preprocesseddf['File Name'] == file_name]['Processed Text'].values[0])
-                for score, file_name in st.session_state[rank_key]
-            ]
+
+            resume_score_data = []
+            for score, file_name in st.session_state[rank_key]:
+                tokens = preprocesseddf[preprocesseddf['File Name'] == file_name]['Processed Text'].values[0]
+                llm_input = preprocess_for_llm(tokens)
+                llm_text = " ".join(llm_input)
+                resume_score_data.append((file_name, score, llm_text))
 
             if st.button(f"Use Groq to Classify & Explain ({algo})"):
-                good_fits, bad_fits = explain.  batch_groq_fit_evaluation(algo, job_description, resume_score_data)
+                good_fits, bad_fits = explain.batch_groq_fit_evaluation(algo, job_description, resume_score_data)
 
                 st.subheader("✅ Good Fit Resumes")
                 for file_name, score, explanation in good_fits:
