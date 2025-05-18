@@ -3,6 +3,8 @@ import extraction
 import google.generativeai as genai
 from dotenv import load_dotenv
 import os
+import pandas as pd
+import re
 
 # Load environment variables
 load_dotenv()
@@ -15,30 +17,69 @@ def rank_resumes(df1, job_description):
     file_names = df1['File Name'].tolist()
 
     prompt = (
-        f"You are a professional HR assistant. "
-        f"Based on the following job description, rank the resumes from best fit to least fit.\n\n"
-        f"Job Description:\n{job_description}\n\n"
-        f"Resumes:\n"
+        "You are an expert HR assistant and recruiter with deep knowledge of resume screening. "
+        "Your job is to strictly evaluate how well each resume matches the job description below. "
+        "Be critical and objective — prioritize resumes that are highly relevant and penalize irrelevant ones. "
+        "Avoid being lenient or giving equal importance to all resumes.\n\n"
+        f"---\nJob Description:\n{job_description.strip()}\n---\n\n"
+        "Now evaluate and rank the resumes from best fit to least fit based **only** on the job description above. "
+        "Justify rankings briefly if needed. Here are the resumes:\n\n"
     )
-    for i, text in enumerate(resume_texts):
-        prompt += f"\nResume {i+1} (File Name: {file_names[i]}):\n{text}\n"
 
-    with st.spinner("Ranking resumes using AI..."):
+    for i, resume in enumerate(resume_texts, 1):
+        prompt += f"Resume {i}:\n{resume.strip()}\n\n"
+
+    prompt += (
+    "Return the final result in the exact format below:\n"
+    "1. Resume 3 - Score: High - Strong and precise match on all required skills and relevant experience\n"
+    "2. Resume 1 - Score: Medium - Partial match with some relevant skills but missing critical requirements\n"
+    "3. Resume 2 - Score: Low - Does not meet the core criteria or relevant experience\n\n"
+    "Only assign a 'High' score if the resume clearly demonstrates key skills and relevant experience strictly matching the job description.\n"
+    "Assign 'Medium' if some relevant skills are present but important ones are missing.\n"
+    "Assign 'Low' if the resume lacks critical skills or is largely irrelevant.\n"
+    "Now provide your ranking in the same format. Format it **exactly** as shown above — no headings, no markdown, no extra notes."
+)
+
+    with st.spinner("🔎 Ranking resumes using Gemini..."):
         try:
             response = model.generate_content(prompt)
-            output_text = response.text
+            output_text = response.text.strip()
 
             st.markdown("### 🏆 Resume Ranking Result")
-            st.markdown("#### Raw Output")
-            st.write(output_text)
+            st.markdown("#### 📄 Raw Output")
+            # st.code(output_text)
 
-            # Optional: Parse the output_text into a structured DataFrame (depends on format)
-            # You can implement this if Gemini returns JSON or number-based rankings
+            # Show prompt for debugging
+            # with st.expander("🧠 Prompt used", expanded=False):
+            #     st.code(prompt)
+
+            # Adjusted regex pattern (parentheses around score removed from prompt)
+            pattern = r"(\d+)\.\s*Resume\s*(\d+)\s*-\s*Score:\s*(High|Medium|Low)\s*-\s*(.*)"
+
+            matches = re.findall(pattern, output_text)
+
+            if matches:
+                parsed_data = []
+                for rank, resume_num, score, reason in matches:
+                    idx = int(resume_num) - 1
+                    if 0 <= idx < len(file_names):
+                        parsed_data.append({
+                            "Rank": int(rank),
+                            "File Name": file_names[idx],
+                            "Score": score,
+                            "Reason": reason.strip(),
+                        })
+
+                result_df = pd.DataFrame(parsed_data).sort_values(by="Rank")
+                st.markdown("#### 📊 Structured Ranking")
+                st.dataframe(result_df.reset_index(drop=True))
+            else:
+                st.warning("⚠️ Could not parse the output automatically. Please check the format or response.")
+                st.text_area("Raw Gemini Output", output_text, height=300)
 
         except Exception as e:
-            st.error(f"An error occurred during resume ranking: {e}")
+            st.error(f"❌ An error occurred during resume ranking:\n\n{e}")
 
-# Streamlit App
 # st.set_page_config(page_title="Resume Ranker", layout="wide")
 st.title("📄 Resume Ranking Using Gemini AI")
 st.subheader("Upload resumes and a job description. Let AI rank them!")
