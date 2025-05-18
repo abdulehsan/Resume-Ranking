@@ -14,16 +14,8 @@ def explain_with_groq(algorithm_name, job_description, resume_text, score):
     job_description = job_description[:1000]
 
     prompt = f"""
-    Job Description:
-    {job_description}
-
-    Resume:
-    {resume_text}
-
-    Similarity Score: {score:.4f}
-
-    In exactly 4 lines, explain in a single paragraph why this resume is relevant or not using {algorithm_name}. Avoid bullet points. Be clear and concise. Prefix with either 'Good Fit:' or 'Bad Fit:'.
-    """
+        You are an AI resume evaluator. Your task is to analyze the similarity between a job description and a resume using the provided algorithm. Be strict in your evaluation: only mark a resume as a "Good Fit" if it clearly matches the key responsibilities, skills, and qualifications of the job. If the match is partial or weak, label it as a "Bad Fit."
+        Job Description:{job_description},Resume:{resume_text} , Similarity Score: {score:.4f}, Algorithm Used: {algorithm_name} . In exactly 4 lines, explain why this resume is a Good Fit or Bad Fit for the job. Do not be lenient. Do not suggest improvements. Avoid bullet points. Prefix your response with either 'Good Fit:' or 'Bad Fit:'. """
 
     url = "https://api.groq.com/openai/v1/chat/completions"
     headers = {
@@ -33,10 +25,12 @@ def explain_with_groq(algorithm_name, job_description, resume_text, score):
     payload = {
         "model": "llama3-70b-8192",
         "messages": [
-            {"role": "system", "content": "You are a helpful assistant. That helps users to evaluate resumes. And explain the ranking done by the algorithm."},
+            {"role": "system", "content": "You are a strict and objective resume evaluator. Only mark a resume as a 'Good Fit' if it strongly matches the job description in terms of key skills, responsibilities, and qualifications. If the match is weak or partial, label it as a 'Bad Fit'. Never be lenient. Keep evaluations concise, exactly 4 lines, and clearly explain the reasoning."
+},
             {"role": "user", "content": prompt}
         ]
     }
+
 
     # Retry logic
     for attempt in range(3):  # Try up to 3 times

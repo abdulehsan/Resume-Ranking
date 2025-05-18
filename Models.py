@@ -27,9 +27,9 @@ if uploaded_files:
     st.dataframe(df1[['File Name', 'Resume Text']])
     
     preprocesseddf = ap.preprocess_resumes(df1)
-    for index, row in preprocesseddf.iterrows():
-        with st.expander(f"Resume {row['File Name']}"):
-            st.write(row['Processed Text'])
+    # for index, row in preprocesseddf.iterrows():
+    #     with st.expander(f"Resume {row['File Name']}"):
+    #         st.write(row['Processed Text'])
 
 else:
     st.info("You can upload multiple PDF, DOC files.")
