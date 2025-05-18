@@ -28,7 +28,7 @@ def get_average_vector(tokens, model):
         # Return a zero vector if no word in the tokens exists in the vocabulary
         return np.zeros(model.vector_size)
 
-
+    
 def similarity(job_vector, resume_vectors):
     similarities = []
     for resume_vector in resume_vectors:
