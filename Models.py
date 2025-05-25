@@ -33,13 +33,12 @@ st.markdown("---")
 
 algorithms = st.multiselect(
     "Select Ranking Algorithm(s)",
-    ["TF-IDF", "BM25", "Word2Vec", "BERT"],
-    default=["TF-IDF"]
+    ["BM25", "Word2Vec", "BERT"],
+    default=["BM-25"]
 )
 
 with st.expander("ℹ️ What do these algorithms mean?"):
     st.markdown(""" 
-    - **TF-IDF**: Calculates word importance by frequency.
     - **BM25**: A probabilistic ranking method.
     - **Word2Vec**: Uses word embeddings for context.
     - **BERT**: Deep contextualized transformer model.
