@@ -34,7 +34,7 @@ st.markdown("---")
 algorithms = st.multiselect(
     "Select Ranking Algorithm(s)",
     ["BM25", "Word2Vec", "BERT"],
-    default=["BM-25"]
+    default=["BM25"]
 )
 
 with st.expander("ℹ️ What do these algorithms mean?"):
