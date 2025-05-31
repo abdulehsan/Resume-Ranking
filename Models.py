@@ -1,7 +1,7 @@
 import streamlit as st
 import extraction
 import applyprocessing as ap
-from applyprocessing import preprocess_for_llm  # ✅ Import LLM-specific preprocessing
+from applyprocessing import preprocess_for_llm  
 import bma
 import querypre
 import word2vec as w2v
@@ -9,7 +9,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 import explainwithllm as explain
 import bert
 
-st.title("Resume Ranking-Using BM25")
+st.title("Resume Ranking")
 st.subheader("Upload your resumes to rank them using BM25, etc.")
 st.markdown("Start uploading resumes and a job description below:")
 
